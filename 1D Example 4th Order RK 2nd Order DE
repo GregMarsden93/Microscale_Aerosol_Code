@@ -47,3 +47,70 @@ while t<=tf:
     pos_x.append(posx)
     vvx.append(vx)
     vVelocity_Fluid_X.append(Velocity_Fluid_X)
+
+
+    #Current Step Size X Direction
+    
+    ix1=dt*f_vel_x(posx,vx,t) 
+    kx1=dt*f_acc_x(posx,vx,t) 
+    
+    
+    ix2=dt*f_vel_x(posx+(ix1*0.5),vx+(kx1*0.5),t)
+    kx2=dt*f_acc_x(posx+(ix1*0.5),vx+(kx1*0.5),t+0.5*dt)
+    
+    ix3=dt*f_vel_x(posx+(ix2*0.5),vx+(kx2*0.5),t+0.5*dt) 
+    kx3=dt*f_acc_x(posx+(ix2*0.5),vx+(kx2*0.5),t+0.5*dt)
+    
+    ix4=dt*f_vel_x(posx+ix3,vx+ix3,t+dt) 
+    kx4=dt*f_acc_x(posx+ix3,vx+kx3,t+dt) #end point
+    
+    
+    posx+=((ix1+2*ix2+2*ix3+ix4)/6.0) #+ Brownian_Motion
+    vx+=(kx1+2*kx2+2*kx3+kx4)/6.0
+
+    Velocity_Fluid_X=fVfx(posx,posy,posz,t)
+
+    t=t+dt
+
+
+#Runge-Kutta Section - Plotting
+
+#plotting of solution - Displacement
+plt.plot(2,1)
+plt.plot(tt,pos_x,label="Displacement X")
+plt.xlabel("Time, s")
+plt.ylabel("Displacement X, m")
+plt.xlim(0,1.0)
+#plt.ylim(0,0.6)
+plt.legend(loc='best')
+plt.suptitle("Solution of Particle Motion by Runge-Kutta method: Drag + Added Mass + Brownian Motion X")
+plt.show()
+
+Third_last_pos_x= pos_x[-3]
+Second_last_pos_x= pos_x[-2]
+last_pos_x= pos_x[-1]
+
+print(Third_last_pos_x)
+print(Second_last_pos_x)
+print(last_pos_x)
+print("")
+
+#plotting of solution - Velocity
+plt.plot(2,1)
+plt.plot(tt,vvx,label="Velocity X")
+plt.xlabel("Time, s")
+plt.ylabel("Velocity X, m/s")
+plt.xlim(0,1.0)
+plt.ylim(0,1.5)
+plt.legend(loc='best')
+plt.suptitle("Solution of Particle Motion by Runge-Kutta method: Drag + Added Mass X")
+plt.show()
+
+
+Third_last_vvx= vvx[-3]
+Second_last_vvx= vvx[-2]
+last_vvx= vvx[-1]
+
+print(Third_last_vvx)
+print(Second_last_vvx)
+print(last_vvx)
