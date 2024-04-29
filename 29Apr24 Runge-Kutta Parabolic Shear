@@ -1,0 +1,747 @@
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Parameters - Values - Fundamentals
+
+e = 1.602*(10**-19) # Charge of Electron
+k_B = 1.38065*(10**-23) # Boltzmann Constant
+
+# Parameters - Values - Particle
+
+Mass_Particle = 3.73*(10**-13) # Particle Mass in (kg)
+Density_Fluid = 1.204 # Fluid Density in (kg/m^3) (Set as Air at Atmos. Pressure and 293K) 
+Density_Particle = 5700 # Particle Density in (kg/m^3) (Set as Fe2O3)
+Number_of_Charges = 18 # Number of Electric Charges of Magnitude e
+C_c = 1 # Slip Correction Factor
+C_m = 1.146 # Momentum Exchange Coefficient
+C_s = 1.147 # Thermal Slip Coefficient
+C_t = 2.2 # Temperature Jump Coefficient
+k_P = 0.58 # Heat Conductivity Coefficient of Particle (W/m/K) (Set as Fe2O3 at 293K) []
+
+
+# Parameters - Values - Fluid
+
+Dynamic_Viscosity_Fluid = 2.527*(10**-6) # Dynamic Viscosity of Air in (Ns/m^2) (Set as Air at Atmos. Pressure and 293K)
+Acceleration_Fluid = -9.81 # Acceleration of Fluid in (m/s^2) (Set as g)
+Molecular_Diameter = 369*(10**-12) # Molecular Diameter of Fluid (m) (Set as Nitrogen) - from [1]
+k_F = 0.02614 # Heat Conductivity Coefficient of Fluid (W/m/K) (Set as Air at Atmos. Pressure and 293K)
+
+
+# Parameters - Values - Fields
+
+Potential_Difference = 5000 # Potential Difference of Electric Field in (V)
+Distance_Electric_Field = 0.02 # Distance Across Electric Field in (m)
+Pressure = 101325 # Pressure in (Pa) (Set as Air at Atmos. Pressure and 293K)
+
+T_c_y = 293 # Temperature of Cold Wall -> Ceiling, y=0.1 (K)
+T_h_y = 303 # Temperature of Hot Wall -> Wall, y=0 (K)
+T_0 = 293 # Mean Temperature of Fluid (K)
+
+# Parameters - Values - Dimensions
+
+Wall_Position_Y_Plane = 0.0 #Wall Position Set as y=0 Plane
+Wall_Ceiling_Y_Plane = 0.1 #Wall Position set as y=0.1m above Wall - matches [2]
+
+# Parameters - Calculated - Particle & Fluid
+
+Volume_Particle = Mass_Particle/Density_Particle # Volume of Particle in (m^3)
+Volume_Fluid = Volume_Particle # Fluid Volume Displaced in (m^3)
+
+Diameter_Particle = (6*(Volume_Particle/np.pi)) ** (1/3)
+Area_Particle = (4/3)*np.pi*((Diameter_Particle * 0.5) ** 2)
+
+Kinematic_Viscosity_Fluid = Dynamic_Viscosity_Fluid / Density_Fluid
+
+Added_Mass_Coeff = 0.5*(Density_Fluid*Volume_Fluid) # Added Mass Coefficient
+Reduced_Gravity_Coeff = Mass_Particle*(1-(Density_Fluid/Density_Particle)) # Added Reduced Gravity Coefficient
+#Mean_Free_Path_Gas = (k_B*T_0)/((np.sqrt(2*np.pi))*(Molecular_Diameter**2)*Pressure)
+Mean_Free_Path_Gas = 0.0665*(10**-6) # Mean Free Path of Air at 293.13 K and 101.3 kPa (NTP) [3]
+
+Knudsen_Number = (2*Mean_Free_Path_Gas)/Diameter_Particle
+
+Diffusion_Coefficient = (k_B * T_0)/(3*(np.pi)*Dynamic_Viscosity_Fluid*Diameter_Particle) # [5]
+
+
+# Parameters - Calculated - Fields
+
+Electric_Field_Strength = Potential_Difference/Distance_Electric_Field # Electric Field Strength in (V/m)
+T_grad_Y = (T_h_y - T_c_y)/(Wall_Position_Y_Plane - Wall_Ceiling_Y_Plane)
+
+
+#Runge-Kutta Section - Initial Conditions
+#Initial Conditions
+
+t=0.0
+posx=0.0
+posy=0.04
+posz=0.0
+vx=0.5
+vy=0.0
+vz=0.1
+Velocity_Fluid_X = 1.0
+Velocity_Fluid_Y = 0
+Velocity_Fluid_Z = 0
+
+tf=1.0 #final value of t
+dt=0.000005 #step length
+
+vxyz=np.sqrt((vx**2)+(vy**2)+(vz**2))
+cflno=0.0
+Re=(np.sqrt((vx**2)+(vy**2)+(vz**2)))*Diameter_Particle/Dynamic_Viscosity_Fluid
+
+Tau_w=Dynamic_Viscosity_Fluid*(np.sqrt(Velocity_Fluid_X**2+Velocity_Fluid_Z**2))/(Wall_Position_Y_Plane-posy)
+
+vf=np.sqrt(np.abs(Tau_w/Density_Fluid))
+yplus=vf*(Wall_Position_Y_Plane-posy)/(Dynamic_Viscosity_Fluid/Density_Fluid)
+
+rms = np.sqrt(2*Diffusion_Coefficient*dt) # Root Mean Square Distance - Brownian Motion (m) [3]
+
+Brownian_Motion = rms*(np.random.uniform(-1,1))
+
+#Lists of values
+
+tt=[0.0, 0.0]
+pos_x=[0.0, 0.0]
+pos_y=[0.04, 0.04]
+pos_z=[0.0, 0.0]
+vvx=[0.5, 0.5]
+vvy=[0.0, 0.0]
+vvz=[0.1, 0.1]
+vvxyz=[np.sqrt(vx**2 + vy**2 + vz**2), np.sqrt(vx**2 + vy**2 + vz**2)]
+Ccfl=[0.0, 0.0]
+Rey=[(np.sqrt((vx**2)+(vy**2)+(vz**2)))*Diameter_Particle/Dynamic_Viscosity_Fluid, (np.sqrt((vx**2)+(vy**2)+(vz**2)))*Diameter_Particle/Dynamic_Viscosity_Fluid]
+Yyplus=[vf*(Wall_Position_Y_Plane-posy)/(Dynamic_Viscosity_Fluid/Density_Fluid), vf*(Wall_Position_Y_Plane-posy)/(Dynamic_Viscosity_Fluid/Density_Fluid)]
+TTau_w=[Dynamic_Viscosity_Fluid*(np.sqrt(Velocity_Fluid_X**2+Velocity_Fluid_Z**2))/(Wall_Position_Y_Plane-posy), Dynamic_Viscosity_Fluid*(np.sqrt(Velocity_Fluid_X**2+Velocity_Fluid_Z**2))/(Wall_Position_Y_Plane-posy)]
+Vvf=[np.sqrt(np.abs(Tau_w/Density_Fluid)), np.sqrt(np.abs(Tau_w/Density_Fluid))]
+vVelocity_Fluid_X=[1.0, 1.0]
+vVelocity_Fluid_Y=[0.0, 0.0]
+vVelocity_Fluid_Z=[0.0, 0.0]
+
+#Defining Functions
+
+#defining functions for Acceleration
+
+Electrophoresis = (Number_of_Charges*e*Electric_Field_Strength)/Mass_Particle # [3]
+Reduced_Gravity = Reduced_Gravity_Coeff*(Acceleration_Fluid/Mass_Particle) # [3]
+Thermopho_Y_num = (-6*np.pi*Dynamic_Viscosity_Fluid*Kinematic_Viscosity_Fluid*Diameter_Particle*C_s)*((k_F/k_P)+C_t*(2*Mean_Free_Path_Gas/Diameter_Particle))
+Thermopho_Y_denom = (1+(6*C_m*(Mean_Free_Path_Gas/Diameter_Particle)))*(1+2*(k_F/k_P)+4*C_t*(Mean_Free_Path_Gas/Diameter_Particle))
+Thermophoresis_Y = (Thermopho_Y_num*(T_grad_Y)/T_0)/Thermopho_Y_denom # [2] - Talbot formula
+
+Prev_Velocity_Fluid_X = vVelocity_Fluid_X[-2]
+Prev_vx = vvx[-2]
+Added_Mass_X = 0.5*(((Velocity_Fluid_X - Prev_Velocity_Fluid_X)/dt) - (vx - Prev_vx)/dt)
+
+Prev_Velocity_Fluid_Y = vVelocity_Fluid_Y[-2]
+Prev_vy = vvy[-2]
+Added_Mass_Y = 0.5*(((Velocity_Fluid_Y - Prev_Velocity_Fluid_Y)/dt) - (vy - Prev_vy)/dt)
+
+Prev_Velocity_Fluid_Z = vVelocity_Fluid_Z[-2]
+Prev_vz = vvz[-2]
+Added_Mass_Z = 0.5*(((Velocity_Fluid_Z - Prev_Velocity_Fluid_Z)/dt) - (vz - Prev_vz)/dt)
+
+# X-AXIS 
+
+#acceleration x-axis -> drag
+
+def f_acc_x(posx,vx,t):
+    return -3*Dynamic_Viscosity_Fluid*(np.pi)*(Diameter_Particle/Mass_Particle)*(vx - (Velocity_Fluid_X)) + Added_Mass_X # [3]
+        
+#velocity x-axis -> drag
+
+def f_vel_x(posx,vx,t):
+    return vx 
+#This needs to be the v(t) = tanh(v(i)/v(terminal)) thing
+#No - ignore tanh thing. 
+
+# Y-AXIS 
+
+#acceleration y-axis -> reduced gravity + drag + electrophoresis + thermophoresis + added mass
+
+def f_acc_y(posy,vy,t):
+    return Reduced_Gravity+-3*Dynamic_Viscosity_Fluid*(np.pi)*(Diameter_Particle/Mass_Particle)*(vy - (Velocity_Fluid_Y))+Electrophoresis+Thermophoresis_Y +Added_Mass_Y
+
+#velocity y-axis -> reduced gravity + drag + added mass + electrophoresis + thermophoresis
+
+def f_vel_y(posy,vy,t):
+    return vy
+
+# Z-AXIS
+
+#acceleration z-axis -> drag + added mass
+
+def f_acc_z(posz,vz,t):
+    return -3*Dynamic_Viscosity_Fluid*(np.pi)*(Diameter_Particle/Mass_Particle)*(vz - (Velocity_Fluid_Z)) + Added_Mass_Z
+
+#velocity z-axis -> drag + added mass
+
+def f_vel_z(posz,vz,t):
+    return vz
+
+#defining functions for CFL 
+
+def fxyz(vx,vy,vz,t):
+    return np.sqrt((f_acc_x(vx,t))**2 + (f_acc_y(vy,t))**2 + (f_acc_z(vz,t))**2)
+
+def cfl(vx,vy,vz,posx,posy,posz,t):
+    return dt*(np.abs(vx/(posx-pos_x[-2]))+np.abs(vy/(posy-pos_y[-2]))+np.abs(vz/(posz-pos_z[-2])))
+    
+#defining functions for Wall Shear Stress 
+
+def fTau_w(Velocity_Fluid_X,Velocity_Fluid_Z,posy,t):
+    return Dynamic_Viscosity_Fluid*((np.sqrt(Velocity_Fluid_X**2+Velocity_Fluid_Z**2))/(Wall_Position_Y_Plane-posy))
+
+#defining functions for Flow Velocity Parallel to Wall
+
+def fvf(Velocity_Fluid_X,Velocity_Fluid_Z,posy,t):
+    return np.sqrt(np.abs((fTau_w(Velocity_Fluid_X,Velocity_Fluid_Z,posy,t))/Density_Fluid))
+
+#defining functions for Yplus
+
+def fyplus(Velocity_Fluid_X,Velocity_Fluid_Z,posy,t):
+    return (fvf(Velocity_Fluid_X,Velocity_Fluid_Z,posy,t))*(Wall_Position_Y_Plane-posy)/(Dynamic_Viscosity_Fluid/Density_Fluid)
+
+#defining functions for Reynolds Number
+
+def fRe(vx,vy,vz,t):
+    return (np.sqrt((f_acc_x(posx,vx,t))**2 + (f_acc_y(posy,vy,t))**2 + (f_acc_z(posz,vz,t))**2))*Diameter_Particle/(Dynamic_Viscosity_Fluid/Density_Fluid)
+
+#defining functions for Dimensionless Deposition Velocity
+
+#def fvstar(Velocity_Fluid_X,Velocity_Fluid_Z,posy,t):
+    #return (fv_d())/fvf(Velocity_Fluid_X,Velocity_Fluid_Z,posy,t)
+
+#defining functions for Dimensionless Particle Relaxation Time
+
+def fTau_P(Diameter_Particle, C_c):
+    return ((Density_Particle/Density_Fluid)*(Diameter_Particle**2)*C_c)/(18*Kinematic_Viscosity_Fluid)
+
+#defining functions for Fluid Velocity - Linear Shearing
+
+#def fVfx(posy,t):
+    #return posy*10
+
+#defining functions for Fluid Velocity - Parabolic Shearing - X-Axis
+
+def fVfx(posx,posy,posz,t):
+    return 625*posy**2
+
+#defining functions for Fluid Velocity - Turbulent Shearing
+
+#def fVfx(posy,t):
+    #return posy*10 INSERT FUNCTION HERE
+
+#defining functions for Fluid Velocity - Vortex
+
+#Hill's Spherical Vortex?
+
+#defining functions for Fluid Velocity Y-axis
+
+def fVfy(posx,posy,posz,t):
+    return 0
+
+#defining functions for Fluid Velocity Z-axis
+
+def fVfz(posx,posy,posz,t):
+    return 0
+
+#Runge-Kutta Section
+
+while t<=tf:
+    tt.append(t)
+    pos_x.append(posx)
+    pos_y.append(posy)
+    pos_z.append(posz)
+    vvx.append(vx)
+    vvy.append(vy)
+    vvz.append(vz)
+    vvxyz.append(vxyz)
+    Ccfl.append(cflno)
+    Rey.append(Re)
+    Yyplus.append(yplus)
+    TTau_w.append(Tau_w)
+    Vvf.append(vf)
+    vVelocity_Fluid_X.append(Velocity_Fluid_X)
+    vVelocity_Fluid_Y.append(Velocity_Fluid_Y)
+    vVelocity_Fluid_Z.append(Velocity_Fluid_Z)
+    
+
+    #Current Step Size X Direction
+    
+    ix1=dt*f_vel_x(posx,vx,t) 
+    kx1=dt*f_acc_x(posx,vx,t) 
+    
+    
+    ix2=dt*f_vel_x(posx+(ix1*0.5),vx+(kx1*0.5),t)
+    kx2=dt*f_acc_x(posx+(ix1*0.5),vx+(kx1*0.5),t+0.5*dt)
+    
+    ix3=dt*f_vel_x(posx+(ix2*0.5),vx+(kx2*0.5),t+0.5*dt) 
+    kx3=dt*f_acc_x(posx+(ix2*0.5),vx+(kx2*0.5),t+0.5*dt)
+    
+    ix4=dt*f_vel_x(posx+ix3,vx+ix3,t+dt) 
+    kx4=dt*f_acc_x(posx+ix3,vx+kx3,t+dt) #end point
+    
+    
+    posx+=((ix1+2*ix2+2*ix3+ix4)/6.0) #+ Brownian_Motion
+    vx+=(kx1+2*kx2+2*kx3+kx4)/6.0
+    
+    
+    #Current Step Size Y Direction
+    
+    iy1=dt*f_vel_y(posy,vy,t) 
+    ky1=dt*f_acc_y(posy,vy,t) 
+    
+    
+    iy2=dt*f_vel_y(posy+(iy1*0.5),vy+(ky1*0.5),t)
+    ky2=dt*f_acc_y(posy+(iy1*0.5),vy+(ky1*0.5),t+0.5*dt)
+    
+    iy3=dt*f_vel_y(posy+(iy2*0.5),vy+(ky2*0.5),t+0.5*dt) 
+    ky3=dt*f_acc_y(posy+(iy2*0.5),vy+(ky2*0.5),t+0.5*dt)
+    
+    iy4=dt*f_vel_y(posy+iy3,vy+iy3,t+dt) 
+    ky4=dt*f_acc_y(posy+iy3,vy+ky3,t+dt) #end point
+    
+    
+    posy+=((iy1+2*iy2+2*iy3+iy4)/6.0) #+ Brownian_Motion
+    vy+=(ky1+2*ky2+2*ky3+ky4)/6.0
+    
+    
+    #Current Step Size Z Direction
+    
+    iz1=dt*f_vel_z(posz,vz,t) 
+    kz1=dt*f_acc_z(posx,vz,t) 
+    
+    
+    iz2=dt*f_vel_z(posx+(iz1*0.5),vz+(kz1*0.5),t)
+    kz2=dt*f_acc_z(posx+(iz1*0.5),vz+(kz1*0.5),t+0.5*dt)
+    
+    iz3=dt*f_vel_z(posz+(iz2*0.5),vz+(kz2*0.5),t+0.5*dt) 
+    kz3=dt*f_acc_z(posz+(iz2*0.5),vz+(kz2*0.5),t+0.5*dt)
+    
+    iz4=dt*f_vel_z(posz+iz3,vz+iz3,t+dt) 
+    kz4=dt*f_acc_z(posz+iz3,vz+kz3,t+dt) #end point
+    
+    
+    posz+=((iz1+2*iz2+2*iz3+iz4)/6.0) #+ Brownian_Motion
+    vz+=(kz1+2*kz2+2*kz3+kz4)/6.0
+    
+    
+    #Half Step Size
+    
+    
+    
+    #Double Step Size
+    
+   
+    
+    
+
+    
+    vxyz+= np.sqrt(vx**2 + vy**2 + vz**2)
+    
+    Zero_Error_CFL_Check_X = np.abs(posx-pos_x[-2])
+    Zero_Error_CFL_Check_Y = np.abs(posy-pos_y[-2])
+    Zero_Error_CFL_Check_Z = np.abs(posz-pos_z[-2])
+    
+    if t>0 and Zero_Error_CFL_Check_X>0 and Zero_Error_CFL_Check_Y>0 and Zero_Error_CFL_Check_Z>0:
+        cflno=cfl(vx,vy,vz,posx,posy,posz,t)
+    #What if do CFL no. in 3 separate directions?
+    
+    Re=fRe(vx,vy,vz,t)
+    
+    Tau_w=fTau_w(Velocity_Fluid_X,Velocity_Fluid_Z,posy,t)
+    vf=fvf(Velocity_Fluid_X,Velocity_Fluid_Z,posy,t)
+    yplus=fyplus(Velocity_Fluid_X,Velocity_Fluid_Z,posy,t)
+    
+    Velocity_Fluid_X=fVfx(posx,posy,posz,t)
+    Velocity_Fluid_Y=fVfy(posx,posy,posz,t)
+    Velocity_Fluid_Z=fVfz(posx,posy,posz,t)
+    
+
+    t=t+dt
+
+
+#CFL_Number_Expected = cfl(vx,vy,vz,posx,posy,posz,t)
+
+Reynolds_Number_Expected = (np.sqrt(Velocity_Fluid_X**2+Velocity_Fluid_Y**2+Velocity_Fluid_Z**2))*Diameter_Particle/(Dynamic_Viscosity_Fluid/Density_Fluid)
+
+Terminal_Velocity_X =  Velocity_Fluid_X           
+
+Terminal_Velocity_Y = (Reduced_Gravity_Coeff*Acceleration_Fluid)/(3*np.pi*Dynamic_Viscosity_Fluid*Diameter_Particle) + Velocity_Fluid_Y
+Terminal_Velocity_Elec_Y = ((Number_of_Charges*e*Electric_Field_Strength*C_c)+(Reduced_Gravity_Coeff*Acceleration_Fluid))/(3*np.pi*Dynamic_Viscosity_Fluid*Diameter_Particle) + Velocity_Fluid_Y
+Terminal_Velocity_Elec_Therm_Y = ((Number_of_Charges*e*Electric_Field_Strength*C_c)+(Reduced_Gravity_Coeff*Acceleration_Fluid)+Thermophoresis_Y)/(3*np.pi*Dynamic_Viscosity_Fluid*Diameter_Particle) + Velocity_Fluid_Y
+Terminal_Velocity_Therm_Y = ((Reduced_Gravity_Coeff*Acceleration_Fluid)+Thermophoresis_Y)/(3*np.pi*Dynamic_Viscosity_Fluid*Diameter_Particle) + Velocity_Fluid_Y
+
+Terminal_Velocity_Z =  Velocity_Fluid_Z 
+
+Terminal_Velocity_Vmag = np.sqrt((Terminal_Velocity_X**2)+(Terminal_Velocity_Elec_Y**2)+(Terminal_Velocity_Z**2))
+
+Tau_w_Expected = fTau_w(Velocity_Fluid_X,Velocity_Fluid_Z,posy,t)
+
+Yplus_Expected = fyplus(Velocity_Fluid_X,Velocity_Fluid_Z,posy,t)
+
+Brownian_Motion_RMS_Pos = np.sqrt(2*Diffusion_Coefficient*tf)
+Brownian_Motion_RMS_Neg = -1*(np.sqrt(2*Diffusion_Coefficient*tf))
+
+Tau_P_Expected = fTau_P(Diameter_Particle, C_c)
+
+
+#Runge-Kutta Section - Plotting
+
+#plotting of solution - Displacement
+plt.plot(2,1)
+plt.plot(tt,pos_x,label="Displacement X")
+plt.xlabel("Time, s")
+plt.ylabel("Displacement X, m")
+plt.xlim(0,1.0)
+#plt.ylim(0,0.6)
+plt.legend(loc='best')
+plt.suptitle("Solution of Particle Motion by Runge-Kutta method: Drag + Added Mass + Brownian Motion X")
+plt.show()
+
+Third_last_pos_x= pos_x[-3]
+Second_last_pos_x= pos_x[-2]
+last_pos_x= pos_x[-1]
+
+print(Third_last_pos_x)
+print(Second_last_pos_x)
+print(last_pos_x)
+print("")
+print(rms)
+print("Brownian Motion rms +ve = " + str(Brownian_Motion_RMS_Pos) + " m")
+print("Brownian Motion rms -ve = " + str(Brownian_Motion_RMS_Neg) + " m")
+
+
+plt.plot(2,1)
+plt.plot(tt,pos_y,label="Displacement Y")
+plt.xlabel("Time, s")
+plt.ylabel("Displacement Y, m")
+plt.xlim(0,1.0)
+plt.ylim(0,0.05)
+plt.legend(loc='best')
+plt.suptitle("Solution of Particle Motion by Runge-Kutta method: Drag + Gravity + Added Mass + Electrophoresis + Brownian Motion Y")
+plt.show()
+
+Third_last_pos_y= pos_y[-3]
+Second_last_pos_y= pos_y[-2]
+last_pos_y= pos_y[-1]
+
+print(Third_last_pos_y)
+print(Second_last_pos_y)
+print(last_pos_y)
+print("")
+
+plt.plot(2,1)
+plt.plot(tt,pos_z,label="Displacement Z")
+plt.xlabel("Time, s")
+plt.ylabel("Displacement Z, m")
+plt.xlim(0,1.0)
+plt.ylim(-0.0005,0.0005)
+plt.legend(loc='best')
+plt.suptitle("Solution of Particle Motion by Runge-Kutta method: Drag + Added Mass + Brownian Motion")
+plt.show()
+
+Third_last_pos_z= pos_z[-3]
+Second_last_pos_z= pos_z[-2]
+last_pos_z= pos_z[-1]
+
+print(Third_last_pos_z)
+print(Second_last_pos_z)
+print(last_pos_z)
+print("")
+
+
+#Runge-Kutta Section - Plotting
+
+#plotting of solution - Velocity
+plt.plot(2,1)
+plt.plot(tt,vvx,label="Velocity X")
+plt.plot(tt,np.linspace(Terminal_Velocity_X,Terminal_Velocity_X,num=200002),label="Terminal Velocity X")
+plt.xlabel("Time, s")
+plt.ylabel("Velocity X, m/s")
+plt.xlim(0,1.0)
+plt.ylim(0,1.5)
+plt.legend(loc='best')
+plt.suptitle("Solution of Particle Motion by Runge-Kutta method: Drag + Added Mass X")
+plt.show()
+
+print("Terminal Velocity X = " + str(Terminal_Velocity_X) + " m/s")
+
+Third_last_vvx= vvx[-3]
+Second_last_vvx= vvx[-2]
+last_vvx= vvx[-1]
+
+print(Third_last_vvx)
+print(Second_last_vvx)
+print(last_vvx)
+
+plt.plot(2,1)
+plt.plot(tt,vvy,label="Velocity Y")
+plt.plot(tt,np.linspace(Terminal_Velocity_Y,Terminal_Velocity_Y,num=200002),label="Terminal Velocity no Elec no Therm Y")
+plt.plot(tt,np.linspace(Terminal_Velocity_Therm_Y,Terminal_Velocity_Therm_Y,num=200002),label="Terminal Velocity Therm no Elec Y")
+plt.plot(tt,np.linspace(Terminal_Velocity_Elec_Y,Terminal_Velocity_Elec_Y,num=200002),label="Terminal Velocity Elec no Therm Y")
+plt.plot(tt,np.linspace(Terminal_Velocity_Elec_Therm_Y,Terminal_Velocity_Elec_Therm_Y,num=200002),label="Terminal Velocity Elec Therm Y")
+plt.xlabel("Time, s")
+plt.ylabel("Velocity Y, m/s")
+plt.xlim(0,1.0)
+plt.ylim(-0.035,0)
+plt.legend(loc='best')
+plt.suptitle("Solution of Particle Motion by Runge-Kutta method: Drag + Gravity + Added Mass + Electrophoresis + Thermophoresis Y")
+plt.show()
+
+print("Terminal Velocity no Elec no Therm Y = " + str(Terminal_Velocity_Y) + " m/s")
+print("Terminal Velocity Therm no Elec Y = " + str(Terminal_Velocity_Therm_Y) + " m/s")
+print("Terminal Velocity Elec no Therm Y = " + str(Terminal_Velocity_Elec_Y) + " m/s")
+print("Terminal Velocity Elec Therm Y = " + str(Terminal_Velocity_Elec_Therm_Y) + " m/s")
+
+Third_last_vvy= vvy[-3]
+Second_last_vvy= vvy[-2]
+last_vvy= vvy[-1]
+
+print(Third_last_vvy)
+print(Second_last_vvy)
+print(last_vvy)
+
+plt.plot(2,1)
+plt.plot(tt,vvz,label="Velocity Z")
+plt.plot(tt,np.linspace(Terminal_Velocity_Z,Terminal_Velocity_Z,num=200002),label="Terminal Velocity no Elec Z")
+plt.xlabel("Time, s")
+plt.ylabel("Velocity Z, m/s")
+plt.xlim(0,1.0)
+plt.ylim(0.0,0.04)
+plt.legend(loc='best')
+plt.suptitle("Solution of Particle Motion by Runge-Kutta method: Drag + Added Mass Z")
+plt.show()
+
+print("Terminal Velocity Z = " + str(Terminal_Velocity_Z) + " m/s")
+
+Third_last_vvz= vvz[-3]
+Second_last_vvz= vvz[-2]
+last_vvz= vvz[-1]
+
+print(Third_last_vvz)
+print(Second_last_vvz)
+print(last_vvz)
+
+print("Terminal Velocity Magnitude = " + str(Terminal_Velocity_Vmag) + " m/s")
+
+#Runge-Kutta Section - Plotting
+
+#plotting of solution - CFL
+plt.plot(2,1)
+plt.plot(tt,Ccfl,label="CFL No.")
+plt.xlabel("Time, s")
+plt.ylabel("CFL No.")
+plt.xlim(0,1.0)
+#plt.ylim(0,1.5)
+plt.legend(loc='best')
+plt.suptitle("Solution of Particle Motion by Runge-Kutta method: CFL No.")
+plt.show()
+
+#print("Expected Final CFL no. = " + str(CFL_Number_Expected))
+
+Third_last_Ccfl= Ccfl[-3]
+Second_last_Ccfl= Ccfl[-2]
+last_Ccfl= Ccfl[-1]
+
+print(Third_last_Ccfl)
+print(Second_last_Ccfl)
+print(last_Ccfl)
+
+#plotting of solution - Reynolds Number
+plt.plot(2,1)
+plt.plot(tt,Rey,label="Reynolds No.")
+plt.plot(tt,np.linspace(Reynolds_Number_Expected,Reynolds_Number_Expected,num=200002),label="Expected Final Reynolds Number")
+plt.xlabel("Time, s")
+plt.ylabel("Reynolds No.")
+plt.xlim(0,1.0)
+#plt.ylim(-0.05,0.05)
+plt.legend(loc='best')
+plt.suptitle("Solution of Particle Motion by Runge-Kutta method: Reynolds No.")
+plt.show()
+
+print("Expected Final Reynolds no. = " + str(Reynolds_Number_Expected))
+
+Third_last_Rey= Rey[-3]
+Second_last_Rey= Rey[-2]
+last_Rey= Rey[-1]
+
+print(Third_last_Rey)
+print(Second_last_Rey)
+print(last_Rey)
+
+print(" ")
+
+print("Particle Diameter = " + str(Diameter_Particle) + " m")
+print("Gas Mean Free Path = " + str(Mean_Free_Path_Gas) + " m")
+
+print(" ")
+
+print("Particle Knudsen Number = " + str(Knudsen_Number))
+
+if Knudsen_Number < 0.4:
+    print("Particle Knudsen Number <<1 indicates continuum flow")
+elif Knudsen_Number > 20:
+    print("Particle Knudsen Number >>1 indicates free molecular flow")
+else:
+    print("Particle Knudsen Number 0.4< Kn >20 indicates transition/slip flow regime flow")
+
+#Runge-Kutta Section - Plotting
+
+#plotting of solution - Wall Shear Stress - Tau_w
+plt.plot(2,1)
+plt.plot(tt,TTau_w,label="Tau_w")
+plt.plot(tt,np.linspace(Tau_w_Expected,Tau_w_Expected,num=200002),label="Expected Wall Shear Stress")
+plt.xlabel("Time, s")
+plt.ylabel("Wall Shear Stress, Pa")
+plt.xlim(0,1.0)
+plt.ylim(-0.00008,0)
+plt.legend(loc='best')
+plt.suptitle("Solution of Particle Motion by Runge-Kutta method: Wall Shear Stress")
+plt.show()
+
+print('Expected Final Wall Shear Stress = ' + str(Tau_w_Expected))
+
+Third_last_TTau_w= TTau_w[-3]
+Second_last_TTau_w= TTau_w[-2]
+last_TTau_w= TTau_w[-1]
+
+print(Third_last_TTau_w)
+print(Second_last_TTau_w)
+print(last_TTau_w)
+
+#plotting of solution - Dimensionless Wall Distance - Yplus
+plt.plot(2,1)
+plt.plot(tt,Yyplus,label="Yplus")
+plt.plot(tt,np.linspace(Yplus_Expected,Yplus_Expected,num=200002),label="Expected Yplus")
+plt.xlabel("Time, s")
+plt.ylabel("Yplus")
+plt.xlim(0,1.0)
+#plt.ylim(-9,-2)
+plt.legend(loc='best')
+plt.suptitle("Solution of Particle Motion by Runge-Kutta method: Yplus")
+plt.show()
+
+print('Expected Final Yplus = ' + str(Yplus_Expected))
+
+Third_last_Yyplus= Yyplus[-3]
+Second_last_Yyplus= Yyplus[-2]
+last_Yyplus= Yyplus[-1]
+
+print(Third_last_Yyplus)
+print(Second_last_Yyplus)
+print(last_Yyplus)
+
+print("Terminal Velocity Magnitude = " + str(Terminal_Velocity_Vmag) + " m/s")
+
+print('Expected Dimensionless Particle Relaxation Time = ' + str(Tau_P_Expected))
+
+#Runge-Kutta Section - Store Data - Displacement
+
+with open(r'C:\Users\fz22233\OneDrive - University of Bristol\Documents\CFD Big One\Runge-KuttaParabolicPosx.txt', 'w') as fp:
+    for item in pos_x:
+        fp.write("%s\n" % item)
+    print('Done Posx')
+    
+with open(r'C:\Users\fz22233\OneDrive - University of Bristol\Documents\CFD Big One\Runge-KuttaParabolicPosy.txt', 'w') as fp:
+    for item in pos_y:
+        fp.write("%s\n" % item)
+    print('Done Posy')
+
+with open(r'C:\Users\fz22233\OneDrive - University of Bristol\Documents\CFD Big One\Runge-KuttaParabolicPosz.txt', 'w') as fp:
+    for item in pos_z:
+        fp.write("%s\n" % item)
+    print('Done Posz')
+    
+with open(r'C:\Users\fz22233\OneDrive - University of Bristol\Documents\CFD Big One\Runge-KuttaParabolicXTt.txt', 'w') as fp:
+    for item in tt:
+        fp.write("%s\n" % item)
+    print('Done XTt')
+
+#Runge-Kutta Section - Store Data
+
+with open(r'C:\Users\fz22233\OneDrive - University of Bristol\Documents\CFD Big One\Runge-KuttaParabolicVx.txt', 'w') as fp:
+    for item in vvx:
+        fp.write("%s\n" % item)
+    print('Done Vx')
+    
+with open(r'C:\Users\fz22233\OneDrive - University of Bristol\Documents\CFD Big One\Runge-KuttaParabolicVy.txt', 'w') as fp:
+    for item in vvy:
+        fp.write("%s\n" % item)
+    print('Done Vy')
+
+with open(r'C:\Users\fz22233\OneDrive - University of Bristol\Documents\CFD Big One\Runge-KuttaParabolicVz.txt', 'w') as fp:
+    for item in vvz:
+        fp.write("%s\n" % item)
+    print('Done Vz')
+    
+with open(r'C:\Users\fz22233\OneDrive - University of Bristol\Documents\CFD Big One\Runge-KuttaParabolicTt.txt', 'w') as fp:
+    for item in tt:
+        fp.write("%s\n" % item)
+    print('Done Tt')
+
+#Thermophoresis add - Done
+#Turbophoresis add - Important
+#Electrophoresis - External Field - Done
+#Electrophoresis - Mirror Force
+#Electrophoresis - Self-Charging
+#Added Mass - Important - Done
+#Diffusion/Brownian Motion - Important - Done
+
+
+#Variable/Swap-Out Equations - if/or operator stuff (different drags for different Reynolds no. etc.)
+#Proper Diff Equations for Acc etc. Coupled Physics stuff. 
+#Write full Acc equation. Break into Partial Diff. equations.
+#Folds into:
+#Active particle splits
+#Emission of energy - mass change
+#Constant decay or Event - continuous process of decay - billions of atoms/molecules. 
+
+
+#Add Shearing Flow of Fluid - Linearly varying Velocity Field - Done.
+#Add Shearing Flow of Fluid - Parabolically varying Velocity Field - Done.
+
+#Add Shearing Flow of Fluid - Turbulent Velocity Field
+#Rotating flow - Particle enters Vortex - with gravity, sinks, without - follows rotation.
+
+#CFD Mesh Info - Into RK4
+
+#Sensitivity Analysis
+#Sensitivity Analysis - Rotating Flow
+
+#Compare with SciPy solve_ivp function
+#Add References to Functions
+
+#Include Forces - Benchmark Test Cases
+#Experiments
+#Papers - Analytic Solutions
+
+#Find Pruppacher & Klett thermophoresis equation 
+
+#References
+
+# [1] Kunze et al 2022, Molecular Diameters of Rarefied Gases, Scientific Reports 12
+# [2] Han et al 2022, Study of Thermophoretic Deposition, Ecotoxicology and Environmental Safety 233
+# [3] Kulkarni et al 2011, Aerosol Measurement: Principles, Techniques, and Applications, 3rd Ed.
+# [4] Hind 
+# [5] Marshall and Li 2014 Adhesive Particle Flow
+
+# [] Vahid Thesis
+
+#Adjusted time from 0.1s to 1.0s to investigate discrepancy in Vy - does not seems to include Therm effect.
+#Suspect that the error in the RK solver is ~1% - therefore the Therm effect obscured by error.
+#Displaying last three terms in values calculated by RK solver to show effect of time step/error
+#Eg. Expected Terminal Velocity X = 0.00593... m/s; final three RK Vx values are ~0.00599... m/s.
+#Eg. Expected Terminal Vz is 0 m/s; final three Vz values are <10^-141 m/s. 
+
+#Adjusted Fluid Velocity X to 1 m/s to match Krantz filtration system quoted 1 m^3/s 
+# assuming flow is through 1 m^2 square cross-section pipe
+
+#Rotating flow to determine suitable dt
+
+#Rewrite CFL using list values - change in v, dt, change in x. Done. 
+
+# Runge-Kutta re-write. Find New Velocity functions. Done.
+
+#Brownian Motion - Gaussian Distribution
+
+#Benchmarks - as many as you can.
