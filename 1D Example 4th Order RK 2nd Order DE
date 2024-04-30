@@ -1,14 +1,13 @@
 #Here I will provide a brief walkthrough of the implementation of the 4th order Runge-Kutta iterative method of integration,
-# as applied to a 1D 2nd order differential equation (in this case, the acceleration due to Stokes drag in the x-direction, in a fluid field of constant velocity).
+# as applied to a 1D 2nd order differential equation (in this case, the acceleration due to Stokes drag in the x-direction, 
+in a fluid field of constant velocity).
 
-
-
-
-
+First we will import the relevant python libraries, and assign fundamental properties.
+Here I have assumed that the particle is 5 micrometres in diameter, is perfectly spherical, and is entirely 
+comprised of iron oxide.
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 
 Mass_Particle = 3.73*(10**-13) # Particle Mass in (kg)
 Density_Particle = 5700 # Particle Density in (kg/m^3) (Set as Fe2O3)
@@ -17,7 +16,8 @@ Diameter_Particle = (6*(Volume_Particle/np.pi)) ** (1/3)
 
 Dynamic_Viscosity_Fluid = 2.527*(10**-6) # Dynamic Viscosity of Air in (Ns/m^2) (Set as Air at Atmos. Pressure and 293K)
 
-
+Now we enter out initial conditions, and choose a time step length, dt, as well as the time over which we aim
+to study the particle.
 
 t=0.0
 posx=0.0
@@ -26,21 +26,26 @@ Velocity_Fluid_X = 1.0
 tf=1.0 #final value of t
 dt=0.001 #step length
 
+Now we split our 2nd Order Differential Equation into 2 simultaneous, 1st Order Differential Equations.
+
 #acceleration x-axis -> drag
 
 def f_acc_x(posx,vx,t):
     return -3*Dynamic_Viscosity_Fluid*(np.pi)*(Diameter_Particle/Mass_Particle)*(vx - (Velocity_Fluid_X))
-
 
 #velocity x-axis -> drag
 
 def f_vel_x(posx,vx,t):
     return vx 
 
+Here we set up the lists into which our data will be stored.
+
 tt=[0.0]
 pos_x=[0.0]
 vvx=[0.5]
 vVelocity_Fluid_X=[1.0]
+
+#Now we set up a while loop and carry out the Runge-Kutta integration.
 
 while t<=tf:
     tt.append(t)
@@ -50,13 +55,17 @@ while t<=tf:
 
 
     #Current Step Size X Direction
-    
+# We are carrying out the Runge-Kutta method on two equations simulataneously. I will be setting up ix1 to ix4 to deal with 
+# the velocity function (dx/dt = v = f(x,t), and kx1 to kx4 to deal with the acceleration function (dv/dt = f(v,t)).
+
     ix1=dt*f_vel_x(posx,vx,t) 
     kx1=dt*f_acc_x(posx,vx,t) 
     
     
     ix2=dt*f_vel_x(posx+(ix1*0.5),vx+(kx1*0.5),t)
     kx2=dt*f_acc_x(posx+(ix1*0.5),vx+(kx1*0.5),t+0.5*dt)
+
+#Note we 'fold' the ix1 and kx1 values into the calculation of the ix2 and kx2 values.
     
     ix3=dt*f_vel_x(posx+(ix2*0.5),vx+(kx2*0.5),t+0.5*dt) 
     kx3=dt*f_acc_x(posx+(ix2*0.5),vx+(kx2*0.5),t+0.5*dt)
@@ -72,6 +81,7 @@ while t<=tf:
 
     t=t+dt
 
+#Here we do the plotting.
 
 #Runge-Kutta Section - Plotting
 
