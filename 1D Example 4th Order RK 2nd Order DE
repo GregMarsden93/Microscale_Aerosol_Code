@@ -2,9 +2,9 @@
 # as applied to a 1D 2nd order differential equation (in this case, the acceleration due to Stokes drag in the x-direction, 
 in a fluid field of constant velocity).
 
-First we will import the relevant python libraries, and assign fundamental properties.
-Here I have assumed that the particle is 5 micrometres in diameter, is perfectly spherical, and is entirely 
-comprised of iron oxide.
+#First we will import the relevant python libraries, and assign fundamental properties.
+#Here I have assumed that the particle is 5 micrometres in diameter, is perfectly spherical, and is entirely 
+# comprised of iron oxide.
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,8 +16,8 @@ Diameter_Particle = (6*(Volume_Particle/np.pi)) ** (1/3)
 
 Dynamic_Viscosity_Fluid = 2.527*(10**-6) # Dynamic Viscosity of Air in (Ns/m^2) (Set as Air at Atmos. Pressure and 293K)
 
-Now we enter out initial conditions, and choose a time step length, dt, as well as the time over which we aim
-to study the particle.
+#Now we enter out initial conditions, and choose a time step length, dt, as well as the time over which we aim
+# to study the particle.
 
 t=0.0
 posx=0.0
@@ -26,7 +26,7 @@ Velocity_Fluid_X = 1.0
 tf=1.0 #final value of t
 dt=0.001 #step length
 
-Now we split our 2nd Order Differential Equation into 2 simultaneous, 1st Order Differential Equations.
+#Now we split our 2nd Order Differential Equation into 2 simultaneous, 1st Order Differential Equations.
 
 #acceleration x-axis -> drag
 
@@ -38,7 +38,7 @@ def f_acc_x(posx,vx,t):
 def f_vel_x(posx,vx,t):
     return vx 
 
-Here we set up the lists into which our data will be stored.
+#Here we set up the lists into which our data will be stored.
 
 tt=[0.0]
 pos_x=[0.0]
@@ -124,3 +124,6 @@ last_vvx= vvx[-1]
 print(Third_last_vvx)
 print(Second_last_vvx)
 print(last_vvx)
+
+
+#Voila! Any questions, comments, or concerns, please come find me by my poster in the King's Foyer.
